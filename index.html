@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แอพจัดการหนี้และเอกสาร (Pro)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    :root {
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f4f4f5;
+      --color-background-info: #f0f9ff;
+      --color-border-tertiary: #e4e4e7;
+      --color-border-secondary: #d4d4d8;
+      --color-text-primary: #18181b;
+      --color-text-secondary: #71717a;
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+      --border-radius-xl: 16px;
+    }
+    
+    /* เพิ่มตัวแปรสำหรับ Dark Mode */
+    [data-theme="dark"] {
+      --color-background-primary: #18181b;
+      --color-background-secondary: #27272a;
+      --color-background-info: #1e293b;
+      --color-border-tertiary: #3f3f46;
+      --color-border-secondary: #52525b;
+      --color-text-primary: #f4f4f5;
+      --color-text-secondary: #a1a1aa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--color-background-primary); color: var(--color-text-primary); transition: background-color 0.3s ease, color 0.3s ease; }
+    .app { max-width: 700px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+    
+    /* Layout & Tabs */
+    .tab-bar { 
+      display: flex; gap: 4px; border-bottom: 0.5px solid var(--color-border-tertiary); margin-bottom: 1.5rem; 
+      overflow-x: auto; white-space: nowrap; padding-bottom: 4px;
+      -ms-overflow-style: none; scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab { padding: 8px 16px; font-size: 13px; cursor: pointer; border: none; background: transparent; color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -5px; }
+    .tab.active { color: var(--color-text-primary); border-bottom: 2px solid var(--color-text-primary); font-weight: 500; }
+    .tab:hover:not(.active) { color: var(--color-text-primary); }
+    .section { display: none; animation: fadeIn 0.3s ease; }
+    .section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Summary & Metrics */
+    .summary-grid, .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+    .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.875rem 1rem; }
+    .metric-label, .metric-lbl { font-size: 11px; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .metric-value, .metric-val { font-size: 20px; font-weight: 600; color: var(--color-text-primary); }
+    .metric-value.danger, .metric-val.red { color: #E24B4A; }
+    .metric-value.warning, .metric-val.amber { color: #BA7517; }
+    .metric-value.success, .metric-val.green { color: #3B6D11; }
+
+    /* Cards */
+    .debt-card, .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s; }
+    .debt-card:hover, .card:hover { border-color: var(--color-border-secondary); }
+    .debt-card.selected, .card.selected { border-color: #378ADD; border-width: 1.5px; }
+    .debt-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .debt-name { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+    
+    /* Badges */
+    .debt-type-badge, .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; display: inline-block; font-weight: 500;}
+    .type-home, .b-home { background: #E6F1FB; color: #185FA5; }
+    .type-lease, .b-lease { background: #E1F5EE; color: #0F6E56; }
+    .type-credit, .b-credit { background: #FAEEDA; color: #854F0B; }
+    .type-personal, .b-personal { background: #FCEBEB; color: #A32D2D; }
+    .type-asset, .b-asset { background: #EAF3DE; color: #27500A; } /* New Asset Type */
+    
+    /* Progress & Meta */
+    .debt-meta, .muted { display: flex; gap: 1.5rem; font-size: 12px; color: var(--color-text-secondary); flex-wrap: wrap; }
+    .debt-progress, .prog-wrap { margin-top: 10px; }
+    .progress-bar { height: 4px; background: var(--color-background-secondary); border-radius: 2px; overflow: hidden; margin: 8px 0 4px;}
+    .progress-fill, .prog-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
+    .progress-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-secondary); margin-top: 4px; }
+    .due-soon { color: #BA7517; font-weight: 500; }
+    .overdue { color: #E24B4A; font-weight: 500; }
+
+    /* Buttons */
+    .save-btn, .btn-primary { width: 100%; padding: 10px 16px; background: var(--color-text-primary); color: var(--color-background-primary); border: none; border-radius: var(--border-radius-md); font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+    .save-btn:hover, .btn-primary:hover { opacity: 0.85; }
+    .add-btn-main { width: 100%; padding: 10px; border: 1.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-lg); background: transparent; color: var(--color-text-secondary); font-size: 14px; cursor: pointer; margin-top: 4px; }
+    .add-btn-main:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .btn-sm { font-size: 12px; padding: 6px 12px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; cursor: pointer; color: var(--color-text-secondary); transition: all 0.2s;}
+    .btn-sm:hover, .btn-sm.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: transparent; }
+    
+    /* Action Buttons (Edit/Delete) */
+    .debt-actions { display: flex; gap: 4px; }
+    .btn-action { background: none; border: none; font-size: 14px; cursor: pointer; padding: 4px 6px; border-radius: 6px; color: var(--color-text-secondary); transition: all 0.2s; }
+    .btn-action:hover { background: var(--color-background-secondary); color: var(--color-text-primary); }
+    .btn-action.delete:hover { background: #FCEBEB; color: #E24B4A; }
+
+    /* Docs & Modal Elements */
+    .debt-docs-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; border-top: 0.5px solid var(--color-border-tertiary); padding-top: 8px; flex-wrap: wrap;}
+    .mini-doc, .add-doc-mini { font-size: 11px; padding: 4px 8px; border-radius: 10px; cursor: pointer; }
+    .mini-doc { background: var(--color-background-secondary); color: var(--color-text-secondary); }
+    .mini-doc:hover { color: #185FA5; background: #E6F1FB; }
+    .add-doc-mini { border: 0.5px dashed var(--color-border-secondary); color: var(--color-text-secondary); background: transparent; }
+    .add-doc-mini:hover { background: var(--color-background-secondary); }
+    
+    .doc-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 0.875rem 1rem; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+    .doc-icon { width: 36px; height: 36px; border-radius: var(--border-radius-md); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .doc-icon.pdf { background: #FCEBEB; } .doc-icon.img { background: #E6F1FB; } .doc-icon.other { background: #EAF3DE; }
+    .doc-info { flex: 1; min-width: 0; }
+    .doc-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .doc-meta { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+    .doc-debt-tag { display: inline-block; font-size: 11px; padding: 2px 6px; border-radius: 10px; background: var(--color-background-secondary); color: var(--color-text-secondary); margin-top: 4px; }
+    
+    .drive-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; background: #E6F1FB; color: #185FA5; border-radius: 10px; }
+    .drive-info-box { background: #E6F1FB; border-radius: var(--border-radius-lg); padding: 0.875rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #185FA5; }
+    .icon-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px; color: var(--color-text-secondary); border-radius: 4px; }
+    .icon-btn:hover { background: var(--color-background-secondary); }
+
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(2px);}
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-xl); padding: 1.5rem; width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+    .modal-title { font-size: 16px; font-weight: 600; }
+    .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--color-text-secondary); padding: 0 4px; }
+    .form-row { margin-bottom: 1rem; }
+    .form-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; display: block; font-weight: 500;}
+    .form-input, .form-select { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid var(--color-border-secondary); border-radius: var(--border-radius-md); outline: none; background-color: var(--color-background-primary); color: var(--color-text-primary); transition: background-color 0.3s, color 0.3s;}
+    .form-input:focus, .form-select:focus { border-color: #378ADD; box-shadow: 0 0 0 2px #E6F1FB;}
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .upload-area { border: 1.5px dashed var(--color-border-secondary); border-radius: var(--border-radius-lg); padding: 1.5rem; text-align: center; cursor: pointer; background: var(--color-background-secondary); margin-bottom: 1rem; position: relative; }
+    .upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+    /* Tables & Range Controls */
+    .ctrl-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+    .ctrl-lbl { font-size: 13px; color: var(--color-text-secondary); min-width: 110px; }
+    .ctrl-val { font-size: 14px; font-weight: 600; min-width: 60px; text-align: right; color: var(--color-text-primary); }
+    .tbl-wrap { overflow-x: auto; margin-top: 1rem; background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-md);}
+    table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    th { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); text-align: left; padding: 10px; border-bottom: 1px solid var(--color-border-tertiary); white-space: nowrap; background: var(--color-background-secondary);}
+    td { padding: 10px; border-bottom: 1px solid var(--color-border-tertiary); color: var(--color-text-primary); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr.highlight td { background: var(--color-background-info); }
+
+    /* Strategy Cards */
+    .strat-card { background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 10px; cursor: pointer; transition: all 0.2s;}
+    .strat-card.selected { border: 2px solid #378ADD; background: var(--color-background-info);}
+    .strat-title { font-size: 15px; font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }
+    .strat-desc { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+    .strat-stat { display: flex; gap: 1.5rem; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-tertiary); }
+    .strat-num { font-size: 18px; font-weight: 600; color: var(--color-text-primary); }
+    .strat-numlbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+
+    /* Alerts & Toasts */
+    .alert-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+    .alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .alert-dot.danger { background: #E24B4A; box-shadow: 0 0 0 3px #FCEBEB;}
+    .alert-dot.warning { background: #BA7517; box-shadow: 0 0 0 3px #FAEEDA;}
+    .alert-dot.info { background: #378ADD; box-shadow: 0 0 0 3px #E6F1FB;}
+    .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--color-text-primary); color: var(--color-background-primary); padding: 12px 20px; border-radius: var(--border-radius-md); font-size: 14px; font-weight: 500; z-index: 9999; opacity: 0; transform: translateY(10px); transition: all 0.3s ease; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);}
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Chart & Summary */
+    .section-heading, .section-hd { font-size: 13px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+    .chart-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .chart-bar-label { font-size: 13px; color: var(--color-text-secondary); width: 120px; text-align: right; flex-shrink: 0; }
+    .chart-bar-track { flex: 1; height: 8px; background: var(--color-background-secondary); border-radius: 4px; overflow: hidden; }
+    .chart-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease-out;}
+    .chart-bar-val { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); width: 80px; flex-shrink: 0; }
+    .pay-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #EAF3DE; color: #27500A; font-weight: 500; }
+    
+    /* Theme Toggle Switch */
+    .theme-toggle-btn { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; transition: background 0.2s; }
+    .theme-toggle-btn:hover { background: var(--color-background-secondary); }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <h2 class="sr-only">แอพจัดการหนี้และเอกสาร เชื่อมต่อ Google Drive</h2>
+
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem;">
+    <div>
+      <div style="font-size:22px; font-weight:600; color:var(--color-text-primary);">บัญชีหนี้ของฉัน</div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:6px; flex-wrap: wrap;">
+        <span class="drive-badge">📁 Google Drive เชื่อมต่อแล้ว</span>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+      <button class="theme-toggle-btn" onclick="toggleTheme()" id="theme-btn">
+        <span>🌙</span> โหมดมืด
+      </button>
+      <button class="btn-primary" style="width:auto; padding:8px 16px;" onclick="openAddDebtModal()">+ เพิ่มหนี้</button>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="metric"><div class="metric-label">หนี้รวมทั้งหมด</div><div class="metric-value danger" id="total-debt">฿0</div></div>
+    <div class="metric"><div class="metric-label">จ่ายแล้วเดือนนี้</div><div class="metric-value success" id="paid-month">฿0</div></div>
+    <div class="metric"><div class="metric-label">ใกล้ถึงกำหนด</div><div class="metric-value warning" id="due-soon-count">0 รายการ</div></div>
+    <div class="metric"><div class="metric-label">เอกสารใน Drive</div><div class="metric-value" id="doc-count">0 ไฟล์</div></div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('debts', this)">รายการหนี้</button>
+    <button class="tab" onclick="switchTab('closed', this)">ปิดยอดแล้ว</button>
+    <button class="tab" onclick="switchTab('amort', this)">ตารางผ่อน</button>
+    <button class="tab" onclick="switchTab('history', this)">ประวัติชำระ</button>
+    <button class="tab" onclick="switchTab('strategy', this)">กลยุทธ์ลดหนี้</button>
+    <button class="tab" onclick="switchTab('docs', this)">เอกสาร Drive</button>
+    <button class="tab" onclick="switchTab('alerts', this)">แจ้งเตือน</button>
+    <button class="tab" onclick="switchTab('summary', this)">ภาพรวม</button>
+  </div>
+
+  <!-- TAB: หนี้ทั้งหมด -->
+  <div id="tab-debts" class="section active">
+    <div id="debt-list"></div>
+    <button class="add-btn-main" onclick="openAddDebtModal()">+ เพิ่มหนี้ใหม่</button>
+  </div>
+
+  <!-- TAB: ปิดยอดแล้ว -->
+  <div id="tab-closed" class="section">
+    <div class="section-heading">รายการหนี้ที่ชำระครบแล้ว หรือ ทรัพย์สินปลอดหนี้</div>
+    <div id="closed-debt-list"></div>
+  </div>
+
+  <!-- TAB: เอกสาร Drive -->
+  <div id="tab-docs" class="section">
+    <div class="drive-info-box">
+      📁 ไฟล์จะถูกเก็บใน <strong style="margin: 0 4px;">บัญชีหนี้ของฉัน</strong> ใน Google Drive ของคุณ แยกโฟลเดอร์ตามประเภทหนี้อัตโนมัติ
+    </div>
+    <div style="display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap;" id="doc-filter-row">
+      <button class="btn-sm active" onclick="filterDocs('all', this)">ทั้งหมด</button>
+      <button class="btn-sm" onclick="filterDocs('home', this)">สินเชื่อบ้าน</button>
+      <button class="btn-sm" onclick="filterDocs('lease', this)">เช่าซื้อ</button>
+      <button class="btn-sm" onclick="filterDocs('credit', this)">บัตรเครดิต</button>
+      <button class="btn-sm" onclick="filterDocs('personal', this)">กู้ยืม</button>
+      <button class="btn-sm" onclick="filterDocs('asset', this)">ทรัพย์สิน</button>
+    </div>
+    <div id="doc-list"></div>
+    <button class="add-btn-main" onclick="openUploadModal()">+ อัปโหลดเอกสารใหม่</button>
+  </div>
+
+  <!-- TAB: แจ้งเตือน -->
+  <div id="tab-alerts" class="section">
+    <div class="section-heading">การแจ้งเตือนหนี้</div>
+    <div id="alert-list"></div>
+  </div>
+
+  <!-- TAB: ภาพรวม -->
+  <div id="tab-summary" class="section">
+    <div class="section-heading">สัดส่วนหนี้ตามประเภท</div>
+    <div id="summary-chart" style="margin-bottom:1.5rem;"></div>
+    <div class="section-heading">โฟลเดอร์ใน Google Drive</div>
+    <div id="folder-list"></div>
+  </div>
+
+  <!-- TAB: ตารางผ่อน -->
+  <div id="tab-amort" class="section">
+    <div class="section-heading">เลือกรายการหนี้เพื่อจำลองการผ่อน</div>
+    <div id="debt-selector" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem"></div>
+
+    <div id="amort-summary" class="metric-grid"></div>
+
+    <div class="ctrl-row">
+      <span class="ctrl-lbl">จำลองจ่ายเพิ่มต่อเดือน</span>
+      <input type="range" min="0" max="20000" step="500" value="0" id="extra-payment" style="flex:1" oninput="calcAmort()">
+      <span class="ctrl-val" id="extra-val">฿0</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table id="amort-table">
+        <thead><tr>
+          <th style="width:60px; text-align: center;">งวด</th>
+          <th style="width:100px; text-align: right;">ค่างวด</th>
+          <th style="width:100px; text-align: right;">เงินต้น</th>
+          <th style="width:100px; text-align: right;">ดอกเบี้ย</th>
+          <th style="width:120px; text-align: right;">คงเหลือ</th>
+        </tr></thead>
+        <tbody id="amort-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: ประวัติชำระ -->
+  <div id="tab-history" class="section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <div class="section-heading" style="margin:0">บันทึกการชำระเงินล่าสุด</div>
+      <button class="btn-sm" style="background:var(--color-text-primary);color:var(--color-background-primary);border:none;" onclick="openPayModal()">+ บันทึกชำระ</button>
+    </div>
+
+    <div class="metric-grid" id="hist-summary"></div>
+
+    <div style="position:relative;width:100%;height:220px;margin-bottom:1.5rem">
+      <canvas id="hist-chart" role="img" aria-label="กราฟยอดชำระรายเดือน">ประวัติการชำระหนี้รายเดือน</canvas>
+    </div>
+
+    <div id="hist-list"></div>
+  </div>
+
+  <!-- TAB: กลยุทธ์หนี้ -->
+  <div id="tab-strategy" class="section">
+    <div class="section-heading">เลือกกลยุทธ์การจ่ายหนี้ที่เหมาะกับคุณ</div>
+    <div id="strat-cards"></div>
+    <div id="strat-order" style="margin-top:1.5rem"></div>
+    <button class="btn-sm" style="margin-top:1.5rem; width:100%; padding:10px;" onclick="showToast('ℹ️ ฟีเจอร์ AI วิเคราะห์แผนหนี้กำลังอยู่ในช่วงพัฒนา')">✨ วิเคราะห์แผนหนี้ด้วย AI เพิ่มเติม ↗</button>
+  </div>
+</div>
+
+<!-- MODAL: เพิ่มหนี้ใหม่ -->
+<div class="modal-overlay" id="modal-debt">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">เพิ่มบัญชีหนี้ใหม่</div>
+      <button class="close-btn" onclick="closeModal('modal-debt')">×</button>
+    </div>
+    <div class="form-row">
+      <label class="form-label">ชื่อหนี้ / รายละเอียด</label>
+      <input class="form-input" id="f-name" placeholder="เช่น สินเชื่อบ้าน ธ.กรุงไทย">
+    </div>
+    <div class="form-row">
+      <label class="form-label">ประเภทหนี้</label>
+      <select class="form-select" id="f-type">
+        <option value="home">สินเชื่อบ้าน / ที่ดิน</option>
+        <option value="lease">เช่าซื้อ (รถ, ที่ดิน)</option>
+        <option value="credit">บัตรเครดิต / สินเชื่อส่วนบุคคล</option>
+        <option value="personal">หนี้นอกระบบ / กู้ยืมส่วนตัว</option>
+        <option value="asset">ทรัพย์สินปลอดหนี้ / ซื้อเงินสด</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">ยอดหนี้คงเหลือ (บาท)</label>
+        <input class="form-input" id="f-balance" type="number" placeholder="1000000">
+      </div>
+      <div class="form-row">
+        <label class="form-label">ยอดจัด/วงเงินเดิม (บาท)</label>
+        <input class="form-input" id="f-original" type="number" placeholder="1500000">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">ดอกเบี้ย (% ต่อปี)</label>
+        <input class="form-input" id="f-rate" type="number" step="0.1" placeholder="5.5">
+      </div>
+      <div class="form-row">
+        <label class="form-label">ค่างวด (บาท)</label>
+        <div style="display:flex; gap:4px;">
+          <input class="form-input" id="f-monthly" type="number" placeholder="8500" style="flex:2;">
+          <select class="form-select" id="f-freq" style="flex:1; padding: 10px 4px;">
+            <option value="12">/เดือน</option>
+            <option value="1">/ปี</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">วันที่ครบกำหนดชำระ</label>
+        <input class="form-input" id="f-due" type="date">
+      </div>
+      <div class="form-row">
+        <label class="form-label">สถาบันการเงิน/เจ้าหนี้</label>
+        <input class="form-input" id="f-creditor" placeholder="เช่น ธ.กสิกรไทย">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">หมายเหตุ</label>
+      <input class="form-input" id="f-note" placeholder="รายละเอียดเพิ่มเติม...">
+    </div>
+    <button class="btn-primary" onclick="saveDebt()">บันทึกหนี้</button>
+  </div>
+</div>
+
+<!-- MODAL: อัปโหลดเอกสาร -->
+<div class="modal-overlay" id="modal-upload">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">อัปโหลดเอกสารไปยัง Drive</div>
+      <button class="close-btn" onclick="closeModal('modal-upload')">×</button>
+    </div>
+    <div class="form-row">
+      <label class="form-label">เลือกรายการหนี้ที่เกี่ยวข้อง</label>
+      <select class="form-select" id="u-debt">
+        <option value="">-- เลือกรายการหนี้ --</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">ประเภทเอกสาร</label>
+      <select class="form-select" id="u-doctype">
+        <option value="สัญญา">สัญญา</option>
+        <option value="บิลชำระ">บิลชำระ</option>
+        <option value="ใบเสร็จ">ใบเสร็จ</option>
+        <option value="รูปภาพ">รูปภาพ</option>
+        <option value="อื่นๆ">อื่นๆ</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">เลือกไฟล์</label>
+      <div class="upload-area" id="upload-area">
+        <input type="file" id="u-file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onchange="onFileSelect(event)">
+        <div style="font-size:32px; margin-bottom:8px;">📎</div>
+        <p id="upload-label" style="font-weight:500; color:var(--color-text-primary);">คลิกหรือลากไฟล์มาวาง</p>
+        <p style="font-size:12px; margin-top:6px; color:var(--color-text-secondary);">รองรับ PDF, JPG, PNG, DOC (ไม่เกิน 5MB)</p>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">หมายเหตุ (ไม่บังคับ)</label>
+      <input class="form-input" id="u-note" placeholder="เช่น ใบเสร็จงวดเดือนเมษา 2569">
+    </div>
+    <button class="btn-primary" id="upload-btn" onclick="uploadDoc()">📤 อัปโหลดไปยัง Google Drive</button>
+  </div>
+</div>
+
+<!-- MODAL: บันทึกการชำระเงิน -->
+<div class="modal-overlay" id="modal-pay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">บันทึกการชำระเงิน</div>
+      <button class="close-btn" onclick="closeModal('modal-pay')">×</button>
+    </div>
+    <div class="form-row">
+      <label class="form-label">รายการหนี้</label>
+      <select class="form-select" id="pay-debt" onchange="updatePayoffBtn()"></select>
+    </div>
+    <div class="form-row">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px;">
+        <label class="form-label" style="margin-bottom:0;">จำนวนเงินที่จ่าย (บาท)</label>
+        <button class="btn-sm" style="padding:2px 8px; font-size:11px;" onclick="fillPayoffAmount()" id="btn-payoff">💰 จ่ายปิดยอด</button>
+      </div>
+      <input class="form-input" type="number" id="pay-amount" placeholder="14200">
+    </div>
+    <div class="form-row">
+      <label class="form-label">วันที่ชำระ</label>
+      <input class="form-input" type="date" id="pay-date">
+    </div>
+    <div class="form-row">
+      <label class="form-label">หมายเหตุ (อ้างอิงงวด)</label>
+      <input class="form-input" type="text" id="pay-note" placeholder="งวดเดือนมีนาคม">
+    </div>
+    <div style="display:flex; gap:10px; margin-top:1.5rem;">
+      <button class="btn-primary" style="flex:2;" onclick="savePay()">บันทึกประวัติชำระ</button>
+      <button class="btn-sm" style="flex:1;" onclick="closeModal('modal-pay')">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ยืนยันการลบหนี้ -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width: 350px; text-align: center; padding: 2rem 1.5rem;">
+    <div style="font-size: 48px; margin-bottom: 12px; line-height: 1;">⚠️</div>
+    <div class="modal-title" style="margin-bottom: 8px; font-size: 18px;">ยืนยันการลบรายการ</div>
+    <div style="font-size: 14px; color: var(--color-text-secondary); margin-bottom: 1.5rem;" id="confirm-desc">คุณแน่ใจหรือไม่ที่จะลบรายการนี้? (ประวัติการชำระจะถูกลบไปด้วย)</div>
+    <div style="display: flex; gap: 10px;">
+      <button class="btn-sm" style="flex: 1; padding: 10px; font-size: 14px;" onclick="closeModal('modal-confirm')">ยกเลิก</button>
+      <button class="btn-primary" style="flex: 1; background: #E24B4A; color: white;" id="confirm-btn">ลบรายการ</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ==========================================
+// DATA & STATE
+// ==========================================
+const DRIVE_FOLDER_ID = '1UdDQXMEVXVC73wulBPNmDN-kwQfoWQ6y';
+const FOLDER_IDS = { home: '1fzl50-0HervV6qCrNiEs96nQ-uu9TIdt', lease: '1dB2fcZoTJnjG-fsUZO2XBf3WdQgY2HIb', credit: '1iR8VHS4z7pca3l0DezwSjYwXM5e8tCtF', personal: '1k_zgcL8xh2fn4mwXfKLnFyZTkF9-Tm-r', asset: '1mockAssetFolderID' };
+const FOLDER_NAMES = { home: 'สินเชื่อบ้าน-ที่ดิน', lease: 'เช่าซื้อ', credit: 'บัตรเครดิต-สินเชื่อส่วนบุคคล', personal: 'หนี้นอกระบบ-กู้ยืมส่วนตัว', asset: 'ทรัพย์สินปลอดหนี้' };
+const typeLabel = { home:'สินเชื่อบ้าน', lease:'เช่าซื้อ', credit:'บัตรเครดิต', personal:'กู้ยืมส่วนตัว', asset:'ทรัพย์สินปลอดหนี้' };
+const typeClass = { home:'type-home', lease:'type-lease', credit:'type-credit', personal:'type-personal', asset:'type-asset' };
+const typeColor = { home:'#378ADD', lease:'#1D9E75', credit:'#BA7517', personal:'#E24B4A', asset:'#3B6D11' };
+
+// Initial Data
+let debts = [
+  { id:1, name:'สินเชื่อบ้าน ธ.กรุงไทย', type:'home', balance:1850000, original:2500000, rate:5.5, monthly:14200, due:'2026-05-05', creditor:'ธ.กรุงไทย', note:'' },
+  { id:2, name:'เช่าซื้อรถ TOYOTA YARIS', type:'lease', balance:320000, original:480000, rate:3.9, monthly:8900, due:'2026-04-28', creditor:'TOYOTA Leasing', note:'' },
+  { id:3, name:'บัตรเครดิต KBank', type:'credit', balance:45000, original:45000, rate:18, monthly:2500, due:'2026-04-25', creditor:'ธ.กสิกรไทย', note:'ชำระขั้นต่ำ 2,500' },
+  { id:4, name:'กู้ยืมจากญาติ', type:'personal', balance:80000, original:80000, rate:0, monthly:5000, due:'2026-06-01', creditor:'ครอบครัว', note:'ไม่มีดอกเบี้ย' },
+];
+
+let payments = [
+  {id:1, debtId:1, amount:14200, date:'2026-04-05', note:'งวดเมษายน'},
+  {id:2, debtId:2, amount:8900, date:'2026-03-28', note:'งวดมีนาคม'},
+  {id:3, debtId:3, amount:2500, date:'2026-03-25', note:'ชำระขั้นต่ำ'},
+  {id:4, debtId:1, amount:14200, date:'2026-03-05', note:'งวดมีนาคม'},
+  {id:5, debtId:2, amount:8900, date:'2026-02-28', note:'งวดกุมภาพันธ์'},
+];
+
+let docs = [];
+let docFilter = 'all';
+let selectedFile = null;
+let selectedDebt = debts[0];
+let selectedStrat = 'avalanche';
+let histChart = null;
+let isBWTheme = false;
+let editingDebtId = null;
+let deleteTargetId = null;
+
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+function fmt(n) { return '฿' + Math.round(n).toLocaleString('th-TH'); }
+function fmtDate(d) { return new Date(d).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}); }
+function daysUntil(dateStr) {
+  const d = new Date(dateStr), now = new Date();
+  now.setHours(0,0,0,0); d.setHours(0,0,0,0);
+  return Math.round((d-now)/86400000);
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; 
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function getFileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if(ext === 'pdf') return { cls:'pdf', icon:'📄' };
+  if(['jpg','jpeg','png','gif'].includes(ext)) return { cls:'img', icon:'🖼' };
+  return { cls:'other', icon:'📎' };
+}
+function getDebtById(id) { return debts.find(d => d.id == id); }
+function openLink(url) { window.open(url, '_blank'); }
+
+// ==========================================
+// THEME & NAVIGATION
+// ==========================================
+function toggleTheme() {
+  isBWTheme = !isBWTheme;
+  const btn = document.getElementById('theme-btn');
+  if (isBWTheme) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    btn.innerHTML = '<span>☀️</span> โหมดสว่าง';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    btn.innerHTML = '<span>🌙</span> โหมดมืด';
+  }
+  
+  // รีเฟรชกราฟเพื่อให้ข้อความในกราฟสลับสีตามธีม
+  if(document.getElementById('tab-history').classList.contains('active')) {
+    renderHistory();
+  }
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  
+  if(name === 'history') renderHistory();
+  if(name === 'strategy') renderStrategy();
+}
+
+// ==========================================
+// DASHBOARD & LIST RENDERERS
+// ==========================================
+function renderAll() {
+  const activeDebts = debts.filter(d => d.balance > 0);
+  const total = activeDebts.reduce((s,d) => s + d.balance, 0);
+  const paid = activeDebts.reduce((s,d) => s + d.monthly, 0);
+  const dueSoon = activeDebts.filter(d => { const days=daysUntil(d.due); return days>=0 && days<=7; }).length;
+  
+  document.getElementById('total-debt').textContent = fmt(total);
+  document.getElementById('paid-month').textContent = fmt(paid);
+  document.getElementById('due-soon-count').textContent = dueSoon + ' รายการ';
+  document.getElementById('doc-count').textContent = docs.length + ' ไฟล์';
+  
+  renderDebts(); 
+  renderDocs(); 
+  renderAlerts(); 
+  renderSummary();
+  renderDebtSelector(); // for amort tab
+}
+
+function renderDebts() {
+  const elActive = document.getElementById('debt-list');
+  const elClosed = document.getElementById('closed-debt-list');
+  
+  const generateCardHTML = (list) => {
+    if(list.length === 0) {
+      return `<div style="text-align:center; padding:2rem; color:var(--color-text-secondary);">ไม่มีรายการ</div>`;
+    }
+    
+    return list.map(d => {
+      const pct = d.original > 0 ? Math.round((1 - d.balance/d.original)*100) : (d.balance <= 0 ? 100 : 0);
+      const days = daysUntil(d.due);
+      let dueStr='', dueClass='';
+      
+      if (d.type === 'asset' || d.balance <= 0) {
+        dueStr = 'ปลอดหนี้ / ปิดยอดแล้ว'; dueClass = 'success';
+      } else if(days < 0) { 
+        dueStr='เกินกำหนด '+Math.abs(days)+' วัน'; dueClass='overdue'; 
+      } else if(days <= 7) { 
+        dueStr='ครบใน '+days+' วัน'; dueClass='due-soon'; 
+      } else { 
+        dueStr='ครบ '+fmtDate(d.due); 
+      }
+      
+      const debtDocs = docs.filter(doc => doc.debtId == d.id);
+      const miniDocs = debtDocs.slice(0,3).map(doc => `<span class="mini-doc" onclick="openLink('${doc.driveUrl}')" title="เปิดไฟล์">📎 ${doc.name.substring(0,10)}${doc.name.length>10?'...':''}</span>`).join('');
+      const moreCount = debtDocs.length > 3 ? `<span class="mini-doc">+${debtDocs.length-3}</span>` : '';
+      
+      return `<div class="debt-card">
+        <div class="debt-card-top">
+          <div>
+            <div class="debt-name">${d.name}</div>
+            <div style="font-size:12px; color:var(--color-text-secondary); margin-top:4px;">${d.creditor}</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="debt-type-badge ${typeClass[d.type]}">${typeLabel[d.type]}</span>
+            <div class="debt-actions">
+              <button class="btn-action" onclick="event.stopPropagation(); openEditDebtModal(${d.id})" title="แก้ไขรายการ">✏️</button>
+              <button class="btn-action delete" onclick="event.stopPropagation(); confirmDeleteDebt(${d.id})" title="ลบรายการ">🗑️</button>
+            </div>
+          </div>
+        </div>
+        <div class="debt-meta" style="margin-top:12px;">
+          <span>คงเหลือ <strong style="color:var(--color-text-primary); font-size:14px;">${d.balance <= 0 ? 'ไม่มีหนี้' : fmt(d.balance)}</strong></span>
+          <span>${d.monthly > 0 ? 'งวดละ ' + fmt(d.monthly) + (d.freq === 1 ? '/ปี' : '') : (d.type === 'asset' || d.balance <= 0 ? 'ไม่มีค่างวด' : 'ไม่มีค่างวด')}</span>
+          <span class="${dueClass}">⏳ ${dueStr}</span>
+        </div>
+        <div class="debt-progress">
+          <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(pct,100)}%; background:${typeColor[d.type]};"></div></div>
+          <div class="progress-labels"><span>${d.type === 'asset' && d.balance <= 0 ? 'เป็นเจ้าของ 100%' : 'ชำระแล้ว ' + pct + '%'}</span><span>${d.balance > 0 ? 'เหลืออีก ' + fmt(d.balance) : 'ปิดยอดแล้ว 🎉'}</span></div>
+        </div>
+        <div class="debt-docs-row">
+          <span style="font-size:11px; color:var(--color-text-secondary); font-weight:500;">เอกสารแนบ:</span>
+          ${miniDocs || '<span style="font-size:11px; color:var(--color-text-secondary);">ยังไม่มีไฟล์</span>'}
+          ${moreCount}
+          <button class="add-doc-mini" onclick="openUploadForDebt(${d.id})">+ แนบเพิ่ม</button>
+        </div>
+      </div>`;
+    }).join('');
+  };
+
+  const activeList = debts.filter(d => d.balance > 0);
+  const closedList = debts.filter(d => d.balance <= 0);
+
+  if(elActive) elActive.innerHTML = generateCardHTML(activeList);
+  if(elClosed) elClosed.innerHTML = generateCardHTML(closedList);
+}
+
+function renderDocs() {
+  const filtered = docFilter === 'all' ? docs : docs.filter(d => {
+    const debt = getDebtById(d.debtId);
+    return debt && debt.type === docFilter;
+  });
+  const el = document.getElementById('doc-list');
+  if(filtered.length === 0) {
+    el.innerHTML = `<div style="font-size:14px; color:var(--color-text-secondary); padding:2rem 0; text-align:center; border:1px dashed var(--color-border-secondary); border-radius:var(--border-radius-lg);">ยังไม่มีเอกสาร${docFilter!=='all'?' ในหมวดนี้':''}</div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(doc => {
+    const { cls, icon } = getFileIcon(doc.name);
+    const debt = getDebtById(doc.debtId);
+    return `<div class="doc-card">
+      <div class="doc-icon ${cls}">${icon}</div>
+      <div class="doc-info">
+        <div class="doc-name">${doc.name}</div>
+        <div class="doc-meta">${doc.doctype} · ${doc.date} · ${doc.size}</div>
+        ${debt ? `<span class="doc-debt-tag">${debt.name}</span>` : ''}
+        <span class="drive-badge" style="margin-left:6px;">Drive</span>
+      </div>
+      <button class="icon-btn" onclick="openLink('${doc.driveUrl}')" title="เปิดใน Google Drive">↗</button>
+    </div>`;
+  }).join('');
+}
+
+function filterDocs(type, btn) {
+  docFilter = type;
+  document.getElementById('doc-filter-row').querySelectorAll('.btn-sm').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDocs();
+}
+
+function renderAlerts() {
+  const alerts = [];
+  const activeDebts = debts.filter(d => d.balance > 0);
+  activeDebts.forEach(d => {
+    const days = daysUntil(d.due);
+    if(days<0) alerts.push({ type:'danger', title:'เกินกำหนดชำระ: '+d.name, desc:'เกินกำหนดมาแล้ว '+Math.abs(days)+' วัน · จำนวน '+fmt(d.monthly), date:fmtDate(d.due) });
+    else if(days<=7) alerts.push({ type:'warning', title:'ใกล้ถึงกำหนด: '+d.name, desc:'ครบกำหนดในอีก '+days+' วัน · จำนวน '+fmt(d.monthly), date:fmtDate(d.due) });
+    else if(days<=30) alerts.push({ type:'info', title:'กำหนดชำระเร็วๆ นี้: '+d.name, desc:'ครบกำหนดในวันที่ '+fmtDate(d.due)+' · จำนวน '+fmt(d.monthly), date:'' });
+  });
+  
+  document.getElementById('alert-list').innerHTML = alerts.length
+    ? alerts.map(a => `<div class="alert-card"><div class="alert-dot ${a.type}"></div><div style="flex:1;"><div style="font-size:14px; font-weight:600; color:var(--color-text-primary);">${a.title}</div><div style="font-size:13px; color:var(--color-text-secondary); margin-top:4px;">${a.desc}</div></div>${a.date?`<div style="font-size:12px; font-weight:500; color:var(--color-text-secondary);">${a.date}</div>`:''}</div>`).join('')
+    : '<div style="font-size:14px; color:var(--color-text-secondary); padding:2rem 0; text-align:center;">🎉 ไม่มีรายการที่ใกล้ถึงกำหนดชำระ</div>';
+}
+
+function renderSummary() {
+  const byType = {};
+  const activeDebts = debts.filter(d => d.balance > 0);
+  const total = activeDebts.reduce((s,d) => { byType[d.type]=(byType[d.type]||0)+d.balance; return s+d.balance; }, 0);
+  
+  document.getElementById('summary-chart').innerHTML = ['home','lease','credit','personal','asset'].filter(t=>byType[t]).map(t => {
+    const pct = Math.round(byType[t]/total*100) || 0;
+    return `<div class="chart-bar-row">
+      <div class="chart-bar-label">${typeLabel[t]}</div>
+      <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%; background:${typeColor[t]};"></div></div>
+      <div class="chart-bar-val">${pct}% (${fmt(byType[t])})</div>
+    </div>`;
+  }).join('');
+
+  const docsByType = { home:0, lease:0, credit:0, personal:0, asset:0 };
+  docs.forEach(doc => { const debt = getDebtById(doc.debtId); if(debt) docsByType[debt.type]++; });
+  
+  document.getElementById('folder-list').innerHTML = ['home','lease','credit','personal','asset'].map(t => {
+    return `<div class="doc-card" style="padding: 12px 16px;">
+      <div class="doc-icon other" style="background:#f1f5f9;">📁</div>
+      <div class="doc-info">
+        <div class="doc-name">${FOLDER_NAMES[t]}</div>
+        <div class="doc-meta">${docsByType[t]} ไฟล์ถูกจัดเก็บอยู่</div>
+      </div>
+      <button class="icon-btn" onclick="openLink('https://drive.google.com/drive/folders/${FOLDER_IDS[t]}')" title="เปิดโฟลเดอร์ Google Drive">↗</button>
+    </div>`;
+  }).join('');
+}
+
+// ==========================================
+// ADVANCED FEATURES (Amortization, History, Strategy)
+// ==========================================
+function renderDebtSelector(){
+  const activeDebts = debts.filter(d => d.balance > 0);
+  const el = document.getElementById('debt-selector');
+  
+  if(activeDebts.length === 0) {
+    el.innerHTML = '<div style="font-size:14px; padding:10px 0; color:var(--color-text-secondary);">🎉 ไม่มีรายการหนี้ที่ต้องผ่อนชำระแล้ว</div>';
+    selectedDebt = null;
+    calcAmort();
+    return;
+  }
+  
+  el.innerHTML = activeDebts.map(d => `<button class="btn-sm ${selectedDebt && d.id===selectedDebt.id?'active':''}" onclick="selectDebt(${d.id})">${d.name.substring(0,18)}</button>`).join('');
+  
+  if(activeDebts.length > 0 && (!selectedDebt || selectedDebt.balance <= 0)) selectDebt(activeDebts[0].id);
+}
+
+function selectDebt(id){
+  selectedDebt = debts.find(d => d.id === id);
+  const extraInp = document.getElementById('extra-payment');
+  if(extraInp) extraInp.value = 0;
+  renderDebtSelector();
+  calcAmort();
+}
+
+function calcAmort(){
+  if(!selectedDebt) {
+    document.getElementById('extra-val').textContent = '฿0';
+    document.getElementById('amort-summary').innerHTML = '';
+    document.getElementById('amort-body').innerHTML = '';
+    return;
+  }
+  
+  const extra = parseInt(document.getElementById('extra-payment').value) || 0;
+  document.getElementById('extra-val').textContent = fmt(extra);
+  
+  if(selectedDebt.balance === 0 || selectedDebt.type === 'asset') {
+    document.getElementById('amort-summary').innerHTML = `<div style="color:#3B6D11; padding:1rem; font-size:14px; font-weight:600; text-align:center; grid-column: 1 / -1;">🎉 รายการนี้ปลอดหนี้แล้ว ไม่ต้องผ่อนชำระ</div>`;
+    document.getElementById('amort-body').innerHTML = '';
+    return;
+  }
+
+  const r = selectedDebt.rate / 100 / 12;
+  const pmt = selectedDebt.monthly + extra;
+  let bal = selectedDebt.balance;
+  const rows = [];
+  let totalInt = 0, months = 0;
+
+  if (pmt <= bal * r && r > 0) {
+    document.getElementById('amort-summary').innerHTML = `<div style="color:#E24B4A; padding:1rem; font-size:14px; font-weight:500; text-align:center; grid-column: 1 / -1;">⚠️ ค่างวดไม่พอตัดดอกเบี้ย! หนี้จะไม่มีวันหมด กรุณาเพิ่มค่างวด</div>`;
+    document.getElementById('amort-body').innerHTML = '';
+    return;
+  }
+
+  while(bal > 0 && months < 600){
+    months++;
+    const intPart = r > 0 ? bal * r : 0;
+    const prinPart = Math.min(pmt - intPart, bal);
+    bal = Math.max(0, bal - prinPart);
+    totalInt += intPart;
+    rows.push({m: months, pmt: Math.min(pmt, prinPart + intPart), prin: prinPart, int: intPart, bal: bal});
+  }
+
+  const yrs = Math.floor(months/12);
+  const mos = months%12;
+  const durStr = (yrs>0 ? yrs+' ปี ' : '') + mos+' เดือน';
+
+  document.getElementById('amort-summary').innerHTML = `
+    <div class="metric"><div class="metric-lbl">ค่างวดที่คำนวณ</div><div class="metric-val">${fmt(pmt)}</div></div>
+    <div class="metric"><div class="metric-lbl">ระยะเวลาผ่อนจบ</div><div class="metric-val" style="color:#185FA5">${durStr}</div></div>
+    <div class="metric"><div class="metric-lbl">ดอกเบี้ยรวม</div><div class="metric-val red">${fmt(totalInt)}</div></div>
+    <div class="metric"><div class="metric-lbl">ยอดเงินที่ต้องจ่ายรวม</div><div class="metric-val">${fmt(selectedDebt.balance + totalInt)}</div></div>`;
+
+  const show = rows.slice(0, 36);
+  document.getElementById('amort-body').innerHTML = show.map((r, i) => `
+    <tr${i===0 ? ' class="highlight"' : ''}>
+      <td style="color:var(--color-text-secondary); text-align:center;">${r.m}</td>
+      <td style="text-align:right; font-weight:500;">${fmt(r.pmt)}</td>
+      <td style="color:#3B6D11; text-align:right;">${fmt(r.prin)}</td>
+      <td style="color:#E24B4A; text-align:right;">${fmt(r.int)}</td>
+      <td style="text-align:right; font-weight:500;">${fmt(r.bal)}</td>
+    </tr>`).join('') + (rows.length > 36 ? `<tr><td colspan="5" style="text-align:center; padding:15px; color:var(--color-text-secondary); font-size:13px; font-style:italic; background:var(--color-background-secondary);">... แสดง 36 งวดแรก จากทั้งหมด ${rows.length} งวด ...</td></tr>` : '');
+}
+
+function renderHistory(){
+  const total = payments.reduce((s,p) => s + p.amount, 0);
+  const curMonthPrefix = new Date().toISOString().substring(0,7); // YYYY-MM
+  const thisMonth = payments.filter(p => p.date.startsWith(curMonthPrefix)).reduce((s,p) => s + p.amount, 0);
+  
+  document.getElementById('hist-summary').innerHTML = `
+    <div class="metric"><div class="metric-lbl">ชำระไปแล้วทั้งหมด</div><div class="metric-val green">${fmt(total)}</div></div>
+    <div class="metric"><div class="metric-lbl">ชำระเดือนนี้</div><div class="metric-val">${fmt(thisMonth)}</div></div>
+    <div class="metric"><div class="metric-lbl">จำนวนครั้งที่จ่าย</div><div class="metric-val">${payments.length} ครั้ง</div></div>`;
+
+  const byMonth = {};
+  payments.forEach(p => {
+    const m = p.date.substring(0,7);
+    byMonth[m] = (byMonth[m]||0) + p.amount;
+  });
+  const labels = Object.keys(byMonth).sort();
+  const vals = labels.map(l => byMonth[l]);
+  const thLabels = labels.map(l => { const [y,m]=l.split('-'); return ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][parseInt(m)-1] + ' ' + y.substring(2); });
+
+  const chartTextColor = isBWTheme ? '#a1a1aa' : '#71717a';
+  const chartGridColor = isBWTheme ? '#3f3f46' : 'rgba(128,128,128,0.1)';
+
+  if(histChart){ histChart.destroy(); }
+  histChart = new Chart(document.getElementById('hist-chart'), {
+    type: 'bar',
+    data: { labels: thLabels, datasets: [{ label: 'ยอดชำระรายเดือน', data: vals, backgroundColor: '#378ADD', borderRadius: 6, maxBarThickness: 40 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return fmt(c.raw); } } } },
+      scales: { 
+        y: { 
+          ticks: { callback: v => '฿'+(v/1000).toFixed(0)+'k', color: chartTextColor }, 
+          grid: { color: chartGridColor }, 
+          beginAtZero: true 
+        }, 
+        x: { 
+          ticks: { color: chartTextColor },
+          grid: { display: false } 
+        } 
+      }
+    }
+  });
+
+  const sorted = [...payments].sort((a,b) => b.date.localeCompare(a.date));
+  const debtMap = Object.fromEntries(debts.map(d => [d.id, d]));
+  
+  document.getElementById('hist-list').innerHTML = sorted.length ? sorted.map(p => {
+    const d = debtMap[p.debtId];
+    if(!d) return '';
+    return `<div class="card" style="display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;">
+      <div style="width:10px;height:10px;border-radius:50%;background:${typeColor[d.type]};flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;color:var(--color-text-primary)">${d.name}</div>
+        <div class="muted" style="margin-top:4px">${p.note} · ${fmtDate(p.date)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:600;color:#3B6D11">${fmt(p.amount)}</div>
+        <span class="pay-badge" style="margin-top:4px; display:inline-block;">✓ ชำระแล้ว</span>
+      </div>
+    </div>`;
+  }).join('') : '<div style="text-align:center; padding:2rem; color:var(--color-text-secondary);">ยังไม่มีประวัติการชำระเงิน</div>';
+}
+
+function renderStrategy(){
+  const activeDebts = debts.filter(d => d.balance > 0);
+  
+  if (activeDebts.length === 0) {
+    document.getElementById('strat-cards').innerHTML = '<div style="text-align:center; padding:2rem; color:var(--color-text-secondary);">🎉 ไม่มีหนี้ให้วิเคราะห์แล้ว! ยินดีด้วยครับ</div>';
+    document.getElementById('strat-order').innerHTML = '';
+    return;
+  }
+
+  const strategies = [
+    {
+      id: 'avalanche', name: 'Avalanche — ดอกสูงสุดก่อน (แนะนำ)',
+      desc: 'จ่ายขั้นต่ำทุกก้อน แล้วทุ่มเงินส่วนเกินไปที่หนี้ดอกเบี้ยสูงสุดก่อน ประหยัดดอกเบี้ยได้มากที่สุดในระยะยาว',
+      order: [...activeDebts].filter(d=>d.rate>0).sort((a,b)=>b.rate-a.rate),
+      saved: calcSaving('avalanche'),
+      color: '#3B6D11'
+    },
+    {
+      id: 'snowball', name: 'Snowball — ยอดน้อยสุดก่อน (สร้างกำลังใจ)',
+      desc: 'จ่ายขั้นต่ำทุกก้อน แล้วโฟกัสปิดหนี้ยอดน้อยที่สุดก่อน รู้สึกมีกำลังใจเพราะเห็นหนี้ปิดไปเป็นก้อนๆ ได้เร็ว',
+      order: [...activeDebts].filter(d=>d.rate>0).sort((a,b)=>a.balance-b.balance),
+      saved: calcSaving('snowball'),
+      color: '#185FA5'
+    },
+  ];
+
+  document.getElementById('strat-cards').innerHTML = strategies.map(s => `
+    <div class="strat-card ${s.id===selectedStrat?'selected':''}" onclick="selectStrat('${s.id}')">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div class="strat-title">${s.name}</div>
+        ${s.id===selectedStrat ? '<span class="badge" style="background:#E6F1FB; color:#185FA5;">✔ เลือกอยู่</span>' : ''}
+      </div>
+      <div class="strat-desc">${s.desc}</div>
+      <div class="strat-stat">
+        <div><div class="strat-num" style="color:${s.color}">${fmt(s.saved.interest)}</div><div class="strat-numlbl">ดอกเบี้ยรวมที่ต้องจ่าย</div></div>
+        <div><div class="strat-num">${s.saved.months} เดือน</div><div class="strat-numlbl">เวลาผ่อนจนหมดโดยประมาณ</div></div>
+      </div>
+    </div>`).join('');
+
+  const chosen = strategies.find(s => s.id === selectedStrat);
+  document.getElementById('strat-order').innerHTML = `
+    <div class="section-heading">ลำดับการโฟกัสจ่ายหนี้ของคุณ</div>
+    ${chosen.order.map((d, i) => `
+      <div class="card" style="display:flex; align-items:center; gap:14px; padding:1rem 1.25rem;">
+        <div style="width:30px; height:30px; border-radius:50%; background:${i===0?typeColor[d.type]:'var(--color-background-secondary)'}; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:600; color:${i===0?'#fff':'var(--color-text-secondary)'}; flex-shrink:0; box-shadow: ${i===0?'0 2px 8px rgba(0,0,0,0.1)':'none'};">${i+1}</div>
+        <div style="flex:1">
+          <div style="font-size:15px; font-weight:600; color:var(--color-text-primary)">${d.name}</div>
+          <div class="muted" style="margin-top:4px">ดอกเบี้ย ${d.rate}% · ยอดคงเหลือ ${fmt(d.balance)}</div>
+        </div>
+        <span class="badge ${typeClass[d.type]}">${typeLabel[d.type]}</span>
+      </div>`).join('')}`;
+}
+
+function calcSaving(type){
+  const activeDebts = debts.filter(d => d.balance > 0);
+  const sorted = type === 'avalanche'
+    ? [...activeDebts].filter(d=>d.rate>0).sort((a,b)=>b.rate-a.rate)
+    : [...activeDebts].filter(d=>d.rate>0).sort((a,b)=>a.balance-b.balance);
+  let totalInt = 0, maxMonths = 0;
+  
+  sorted.forEach(d => {
+    const r = d.rate / 100 / 12;
+    if (r === 0) { maxMonths = Math.max(maxMonths, Math.ceil(d.balance / (d.monthly||1))); return; }
+    if (d.monthly <= d.balance * r) { maxMonths = 999; totalInt += 999999; return; } // ไม่พอตัดดอก
+    
+    const n = -Math.log(1 - (d.balance * r) / d.monthly) / Math.log(1 + r);
+    totalInt += (d.monthly * n) - d.balance;
+    maxMonths = Math.max(maxMonths, Math.ceil(n));
+  });
+  return { interest: Math.round(totalInt), months: Math.round(maxMonths) };
+}
+
+function selectStrat(id){ selectedStrat = id; renderStrategy(); }
+
+
+// ==========================================
+// MODALS & ACTIONS
+// ==========================================
+function openAddDebtModal() { 
+  editingDebtId = null;
+  document.querySelector('#modal-debt .modal-title').textContent = 'เพิ่มบัญชีหนี้ใหม่';
+  ['f-name','f-balance','f-original','f-rate','f-monthly','f-due','f-creditor','f-note'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('f-type').value = 'home';
+  document.getElementById('f-freq').value = '12';
+  document.getElementById('modal-debt').classList.add('open'); 
+}
+
+function openEditDebtModal(id) {
+  editingDebtId = id;
+  const d = getDebtById(id);
+  if(!d) return;
+  document.querySelector('#modal-debt .modal-title').textContent = 'แก้ไขบัญชีหนี้';
+  
+  document.getElementById('f-name').value = d.name;
+  document.getElementById('f-type').value = d.type;
+  document.getElementById('f-balance').value = d.balance;
+  document.getElementById('f-original').value = d.original;
+  document.getElementById('f-rate').value = d.rate;
+  // ถ้าผ่อนรายปี ให้แปลงตัวเลขกลับไปเป็นยอดเต็มเพื่อแสดงใน input
+  document.getElementById('f-monthly').value = d.freq === 1 ? d.monthly * 12 : d.monthly; 
+  document.getElementById('f-freq').value = d.freq || 12;
+  document.getElementById('f-due').value = d.due;
+  document.getElementById('f-creditor').value = d.creditor || '';
+  document.getElementById('f-note').value = d.note || '';
+  
+  document.getElementById('modal-debt').classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if(id === 'modal-upload') {
+    selectedFile = null;
+    document.getElementById('upload-label').innerHTML = 'คลิกหรือลากไฟล์มาวาง';
+    document.getElementById('u-file').value = '';
+  }
+}
+
+function saveDebt() {
+  const name = document.getElementById('f-name').value.trim();
+  const balance = parseFloat(document.getElementById('f-balance').value) || 0;
+  if(!name) { showToast('❌ กรุณากรอกชื่อรายการให้ครบถ้วน'); return; }
+  
+  let monthly = parseFloat(document.getElementById('f-monthly').value) || 0;
+  const freq = parseInt(document.getElementById('f-freq').value) || 12;
+  if (freq === 1) monthly = monthly / 12; // หากเป็นรายปี หาร 12 เพื่อให้สอดคล้องกับตารางสูตร
+
+  if (editingDebtId) {
+    // อัปเดตรายการเดิม
+    const idx = debts.findIndex(d => d.id === editingDebtId);
+    if(idx !== -1) {
+      debts[idx] = {
+        ...debts[idx],
+        name, balance, type: document.getElementById('f-type').value,
+        original: parseFloat(document.getElementById('f-original').value) || balance,
+        rate: parseFloat(document.getElementById('f-rate').value) || 0,
+        monthly, freq,
+        due: document.getElementById('f-due').value || new Date().toISOString().split('T')[0],
+        creditor: document.getElementById('f-creditor').value || '-',
+        note: document.getElementById('f-note').value
+      };
+      showToast('✅ แก้ไขรายการสำเร็จ');
+    }
+  } else {
+    // เพิ่มรายการใหม่
+    debts.push({
+      id: Date.now(), name, balance, type: document.getElementById('f-type').value,
+      original: parseFloat(document.getElementById('f-original').value) || balance,
+      rate: parseFloat(document.getElementById('f-rate').value) || 0,
+      monthly: monthly, freq: freq,
+      due: document.getElementById('f-due').value || new Date().toISOString().split('T')[0],
+      creditor: document.getElementById('f-creditor').value || '-',
+      note: document.getElementById('f-note').value
+    });
+    showToast('✅ เพิ่มรายการบัญชีหนี้ใหม่สำเร็จ');
+  }
+  
+  closeModal('modal-debt');
+  renderAll(); 
+}
+
+// ฟังก์ชันลบหนี้
+function confirmDeleteDebt(id) {
+  const d = getDebtById(id);
+  if(!d) return;
+  deleteTargetId = id;
+  document.getElementById('confirm-desc').textContent = `คุณแน่ใจหรือไม่ที่จะลบ "${d.name}"? (ประวัติการชำระของรายการนี้จะถูกลบด้วย)`;
+  
+  const btn = document.getElementById('confirm-btn');
+  btn.onclick = executeDeleteDebt;
+  
+  document.getElementById('modal-confirm').classList.add('open');
+}
+
+function executeDeleteDebt() {
+  if(!deleteTargetId) return;
+  
+  // กรองรายการหนี้ออก
+  debts = debts.filter(d => d.id !== deleteTargetId);
+  // กรองประวัติการชำระของหนี้ก้อนนี้ออก
+  payments = payments.filter(p => p.debtId !== deleteTargetId);
+  
+  // รีเซ็ต selectedDebt ถ้าตรงกับตัวที่ถูกลบไป
+  if(selectedDebt && selectedDebt.id === deleteTargetId) {
+    selectedDebt = debts.length > 0 ? debts[0] : null;
+  }
+  
+  closeModal('modal-confirm');
+  renderAll();
+  calcAmort(); // รีเฟรชตารางผ่อน
+  if(document.getElementById('tab-history').classList.contains('active')) renderHistory();
+  if(document.getElementById('tab-strategy').classList.contains('active')) renderStrategy();
+  showToast('🗑️ ลบรายการหนี้สำเร็จ');
+  deleteTargetId = null;
+}
+
+function openUploadModal() {
+  const sel = document.getElementById('u-debt');
+  sel.innerHTML = '<option value="">-- เลือกระบุบัญชีหนี้ --</option>' + debts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  document.getElementById('modal-upload').classList.add('open');
+}
+
+function openUploadForDebt(debtId) {
+  openUploadModal();
+  setTimeout(() => { document.getElementById('u-debt').value = debtId; }, 50);
+}
+
+function onFileSelect(e) {
+  selectedFile = e.target.files[0];
+  if(selectedFile) {
+    document.getElementById('upload-label').innerHTML = `<span style="color:#185FA5;">✓ ${selectedFile.name}</span><br><span style="font-size:12px; color:var(--color-text-secondary); font-weight:normal;">(${(selectedFile.size/1024).toFixed(0)} KB)</span>`;
+  }
+}
+
+function uploadDoc() {
+  const debtId = document.getElementById('u-debt').value;
+  const doctype = document.getElementById('u-doctype').value;
+  const note = document.getElementById('u-note').value;
+  
+  if(!debtId) { showToast('❌ กรุณาเลือกรายการหนี้ก่อน'); return; }
+  if(!selectedFile) { showToast('❌ กรุณาแนบไฟล์เอกสาร'); return; }
+
+  const debt = getDebtById(parseInt(debtId));
+  const folderId = FOLDER_IDS[debt.type];
+  const folderUrl = `https://drive.google.com/drive/folders/${folderId}`;
+
+  const btn = document.getElementById('upload-btn');
+  btn.textContent = '⏳ กำลังอัปโหลด...';
+  btn.disabled = true;
+
+  // Simulate upload delay as requested in original flow
+  setTimeout(() => {
+    const today = new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});
+    const sizeStr = selectedFile.size > 1048576 ? (selectedFile.size/1048576).toFixed(1)+' MB' : (selectedFile.size/1024).toFixed(0)+' KB';
+
+    docs.push({
+      id: Date.now(), debtId: parseInt(debtId),
+      name: selectedFile.name, doctype, note,
+      date: today, size: sizeStr, driveUrl: folderUrl
+    });
+
+    btn.textContent = '📤 อัปโหลดไปยัง Google Drive';
+    btn.disabled = false;
+    closeModal('modal-upload');
+    renderAll();
+    showToast('✅ อัปโหลดไฟล์ไปยัง Drive สำเร็จ');
+  }, 1500);
+}
+
+function openPayModal() {
+  const sel = document.getElementById('pay-debt');
+  sel.innerHTML = debts.filter(d => d.balance > 0).map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  document.getElementById('pay-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pay-amount').value = '';
+  document.getElementById('pay-note').value = '';
+  document.getElementById('modal-pay').classList.add('open');
+  updatePayoffBtn();
+}
+
+function updatePayoffBtn() {
+  const sel = document.getElementById('pay-debt');
+  if(!sel.value) return;
+  const debt = getDebtById(parseInt(sel.value));
+  document.getElementById('btn-payoff').textContent = debt ? `💰 จ่ายปิดยอด (${fmt(debt.balance)})` : '💰 จ่ายปิดยอด';
+}
+
+function fillPayoffAmount() {
+  const sel = document.getElementById('pay-debt');
+  if(!sel.value) return;
+  const debt = getDebtById(parseInt(sel.value));
+  if(debt) {
+    document.getElementById('pay-amount').value = debt.balance;
+    document.getElementById('pay-note').value = 'จ่ายปิดยอดทั้งหมด';
+  }
+}
+
+function savePay() {
+  const debtId = parseInt(document.getElementById('pay-debt').value);
+  const amount = parseFloat(document.getElementById('pay-amount').value);
+  const date = document.getElementById('pay-date').value;
+  const note = document.getElementById('pay-note').value || 'ชำระหนี้';
+  
+  if(!amount || isNaN(amount) || !date) { showToast('❌ กรุณากรอกจำนวนเงินและวันที่ให้ถูกต้อง'); return; }
+  
+  payments.unshift({ id: Date.now(), debtId, amount, date, note });
+  
+  // ลดจำนวนหนี้ลงเมื่อบันทึกการจ่าย
+  const debt = getDebtById(debtId);
+  if(debt && debt.balance > 0) {
+    debt.balance = Math.max(0, debt.balance - amount);
+  }
+
+  closeModal('modal-pay');
+  renderAll(); // รีเฟรชหน้ารวมเพื่อโชว์ยอดหนี้ที่ลดลง
+  renderHistory();
+  showToast('✅ บันทึกประวัติและอัปเดตยอดคงเหลือเรียบร้อย');
+}
+
+// Initialize the application
+renderAll();
+calcAmort(); // Initialize amortization view
+</script>
+</body>
+</html>
