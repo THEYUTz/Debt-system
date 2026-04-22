@@ -438,6 +438,15 @@
   const typeClass = { home:'type-home', lease:'type-lease', credit:'type-credit', personal:'type-personal', asset:'type-asset' };
   const typeColor = { home:'#378ADD', lease:'#1D9E75', credit:'#BA7517', personal:'#E24B4A', asset:'#27500A' };
 
+  // ID โฟลเดอร์ Google Drive (นำ ID ที่คุณสร้างไว้มาใส่ตรงนี้ได้เลย)
+  const FOLDER_IDS = {
+    home: '1fzl50-0HervV6qCrNiEs96nQ-uu9TIdt',
+    lease: '1dB2fcZoTJnjG-fsUZO2XBf3WdQgY2HIb',
+    credit: '1iR8VHS4z7pca3l0DezwSjYwXM5e8tCtF',
+    personal: '1k_zgcL8xh2fn4mwXfKLnFyZTkF9-Tm-r',
+    asset: '' // ถ้ามีโฟลเดอร์สำหรับทรัพย์สิน ให้เอา ID มาใส่ในเครื่องหมายคำพูดนี้
+  };
+
   // --- Theme Logic ---
   window.toggleTheme = function() {
     const html = document.documentElement;
@@ -740,6 +749,9 @@
     if(!window.selectedFile) { alert('กรุณาเลือกไฟล์'); return; }
     if(!googleAccessToken) { alert('ไม่พบ Token ของ Google Drive กรุณากดปุ่มเชื่อมต่อ Drive ด้านบนซ้ายอีกครั้ง'); return; }
 
+    const debt = getDebtById(debtId);
+    const targetFolderId = debt ? FOLDER_IDS[debt.type] : null;
+
     const btn = document.getElementById('upload-btn');
     btn.textContent = '⏳ กำลังอัปโหลดเข้า Drive...';
     btn.disabled = true;
@@ -748,9 +760,13 @@
       // Multipart upload Google Drive API
       const metadata = {
         name: window.selectedFile.name,
-        mimeType: window.selectedFile.type || 'application/octet-stream',
-        // สามารถระบุ parents: ['YOUR_FOLDER_ID'] ตรงนี้ได้ถ้าต้องการให้เข้าโฟลเดอร์เฉพาะ
+        mimeType: window.selectedFile.type || 'application/octet-stream'
       };
+      
+      // สั่งให้ Google Drive นำไฟล์ไปใส่ในโฟลเดอร์ที่กำหนด
+      if (targetFolderId && targetFolderId !== '') {
+        metadata.parents = [targetFolderId];
+      }
       
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
