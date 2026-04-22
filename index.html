@@ -832,7 +832,10 @@
           <div class="doc-meta">${doc.doctype} · ${fmtDate(doc.date)} · ${doc.size}</div>
           ${debt ? `<span class="badge" style="background:var(--color-background-secondary); color:var(--color-text-secondary); margin-top:4px;">${debt.name}</span>` : ''}
         </div>
-        <button class="icon-btn" onclick="openLink('${doc.driveUrl}')" title="เปิดดูไฟล์">↗ ดูไฟล์</button>
+        <div style="display:flex; gap:6px;">
+          <button class="icon-btn" onclick="openLink('${doc.driveUrl}')" title="เปิดดูไฟล์">↗ ดูไฟล์</button>
+          <button class="icon-btn" onclick="deleteDoc(${doc.id})" title="ลบไฟล์นี้" style="color:#E24B4A; background:#FCEBEB; padding:6px 10px;">🗑️ ลบ</button>
+        </div>
       </div>`;
     }).join('');
   };
@@ -889,6 +892,48 @@
     closeModal('modal-pay');
     saveToCloud();
     showToast('💰 บันทึกการชำระเงินและตัดยอดแล้ว');
+  };
+
+  // --- Delete Document Logic ---
+  window.deleteDoc = async function(docId) {
+    if(!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบเอกสารนี้? (ไฟล์จะถูกลบออกจาก Google Drive ด้วย)')) return;
+
+    const docIndex = window.docs.findIndex(d => d.id === docId);
+    if(docIndex === -1) return;
+    
+    const docObj = window.docs[docIndex];
+
+    // พยายามลบไฟล์ออกจาก Google Drive ถ้ามี Token
+    if (googleAccessToken) {
+      try {
+        // ดึง File ID ออกมาจาก URL ของ Drive
+        let fileId = null;
+        if (docObj.driveUrl.includes('id=')) {
+          fileId = new URL(docObj.driveUrl).searchParams.get('id');
+        } else if (docObj.driveUrl.includes('/d/')) {
+          fileId = docObj.driveUrl.split('/d/')[1].split('/')[0];
+        }
+
+        if (fileId) {
+          // ยิง API สั่งลบไฟล์ใน Google Drive
+          await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': 'Bearer ' + googleAccessToken }
+          });
+        }
+      } catch (err) {
+        console.warn("ไม่สามารถลบไฟล์ต้นฉบับจาก Drive ได้ (อาจถูกลบไปแล้วหรือ Token หมดอายุ):", err);
+      }
+    }
+
+    // ลบออกจากระบบ App (Firebase)
+    window.docs.splice(docIndex, 1);
+    await saveToCloud(); // เซฟทับขึ้น Firebase
+    renderDocs(); // รีเฟรชหน้าจอแสดงผลไฟล์
+    
+    // อัปเดตตัวเลขหน้าแรกด้วย
+    document.getElementById('doc-count').textContent = window.docs.length + ' ไฟล์';
+    showToast('🗑️ ลบเอกสารเรียบร้อย');
   };
 
   window.renderHistory = function() {
